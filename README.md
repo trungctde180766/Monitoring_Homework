@@ -1,114 +1,93 @@
-# AWS System Monitoring: CPU Alarm & CloudWatch Agent (Memory Alarm)
+# Báo cáo Minh chứng Thực hành (Lab Evidence) - CloudWatch & SNS
 
-Dự án này sử dụng **Terraform** để tự động cấu hình hệ thống giám sát và cảnh báo trên AWS. Bài lab được chia làm 2 phần chính phục vụ việc lấy bằng chứng (Evidence) nộp bài:
-
-- **Bài 1 (Session 01)**: Giám sát CPU mặc định (`CPUUtilization`) và gửi Email qua SNS khi CPU vượt quá **80% trong vòng 5 phút**.
-- **Bài 2 (Session 02)**: Cài đặt và cấu hình **CloudWatch Agent** trên EC2 để thu thập các Custom Metric (RAM/Disk) và tạo cảnh báo sử dụng Memory vượt quá **80% trong vòng 5 phút**.
+Tài liệu này tổng hợp cấu hình và hình ảnh minh chứng kết quả cài đặt **CloudWatch Agent** trên máy ảo EC2 và thiết lập cảnh báo **CPU Alarm / Memory Alarm** gửi email thông qua **Amazon SNS**.
 
 ---
 
-## Cấu trúc thư mục (Architecture Structure)
+## 1. Cài đặt CloudWatch Agent trên EC2
 
-```text
-Monitoring/
-├── providers.tf             # Cấu hình AWS Provider
-├── variables.tf             # Định nghĩa các biến (Region, Email, Instance Type,...)
-├── main.tf                  # Tài nguyên chính: EC2, IAM Role, SNS Topic, Email Subscription, CloudWatch Alarms (CPU + Memory)
-├── outputs.tf               # Đầu ra sau khi deploy (Instance ID, IP, Topic ARN, Alarms,...)
-├── terraform.tfvars.example # File mẫu cấu hình các biến môi trường
-├── .gitignore               # Loại bỏ các file nháp, State file của Terraform
-└── scripts/
-    └── stress_cpu.sh        # Script tự động cài đặt CloudWatch Agent và chạy stress test CPU
+Để thu thập các chỉ số chi tiết từ hệ điều hành của máy ảo EC2 (như bộ nhớ RAM, dung lượng đĩa cứng, CPU chi tiết), CloudWatch Agent đã được cài đặt và cấu hình thành công trên máy ảo.
+
+### Thông tin máy ảo EC2:
+* **Tên Instance (Tag Name):** `Hoangskibidi`
+* **Instance ID:** `i-01348f65def85e28` (hoặc ID thực tế sau khi Terraform deploy)
+* **Địa chỉ Public IP:** `13.229.114.49`
+* **Địa chỉ Private IP:** `172.31.29.160`
+
+### Kiểm tra trạng thái hoạt động của Agent:
+Trạng thái hoạt động của CloudWatch Agent được kiểm tra bằng lệnh:
+```bash
+sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -m ec2 -a status
 ```
+
+**Kết quả đầu ra:**
+```json
+{
+  "status": "running",
+  "starttime": "2026-06-12T00:49:31+00:00",
+  "configstatus": "configured",
+  "version": "1.300066.2"
+}
+```
+
+### Hình ảnh minh chứng:
+*(Thêm ảnh chụp màn hình kiểm tra terminal chạy lệnh status ở đây)*
 
 ---
 
-## Hướng dẫn triển khai (Deployment Guide)
+## 2. Cấu hình CPU Alarm gửi Email Alert qua SNS
 
-### Bước 1: Chuẩn bị
-Đảm bảo bạn đã cài đặt **Terraform** và cấu hình **AWS CLI** với quyền truy cập admin.
-Bạn có thể kiểm tra kết nối AWS bằng lệnh:
+Thiết lập cảnh báo CloudWatch Alarm giám sát chỉ số sử dụng CPU (`CPUUtilization`) của máy ảo EC2, tự động gửi thông báo qua email khi CPU vượt ngưỡng cấu hình thông qua Amazon SNS (Simple Notification Service).
+
+### Chi tiết cấu hình Alarm:
+* **Tên Alarm:** `CPU-alarm`
+* **Namespace:** `AWS/EC2`
+* **Chỉ số giám sát (Metric name):** `CPUUtilization`
+* **Instance ID:** `i-056c972234d03b617` (hoặc ID thực tế sau khi Terraform deploy)
+* **Ngưỡng cảnh báo (Threshold):** `CPUUtilization > 80` trong vòng 1 điểm dữ liệu liên tiếp 5 phút (`for 1 datapoints within 5 minutes`).
+* **Hành động (Actions):** Đã kích hoạt (`Actions enabled`), liên kết với một SNS Topic để gửi email.
+* **Trạng thái hiện tại:** `Insufficient data` / `OK` / `ALARM`
+* **Alarm ARN:** `arn:aws:cloudwatch:ap-southeast-1:458580846647:alarm:CPU-alarm` (hoặc ARN thực tế sau khi Terraform deploy)
+
+### Hình ảnh minh chứng:
+*(Thêm ảnh chụp màn hình từ trang chi tiết CloudWatch Console chứng minh cảnh báo CPU-alarm đã được tạo thành công với các hành động gửi thông báo được bật ở đây)*
+
+---
+
+## 3. Cấu hình Memory Alarm qua CloudWatch Agent (Gộp từ Bài 2)
+
+Giám sát tỷ lệ phần trăm sử dụng RAM (`mem_used_percent`) đẩy về từ CloudWatch Agent hoạt động trên EC2.
+
+### Chi tiết cấu hình Memory Alarm:
+* **Tên Alarm:** `Memory-alarm`
+* **Namespace:** `CWAgent` (Custom Metric Namespace)
+* **Chỉ số giám sát (Metric name):** `mem_used_percent`
+* **Ngưỡng cảnh báo (Threshold):** `mem_used_percent > 80` trong vòng 1 điểm dữ liệu liên tiếp 5 phút.
+* **Hành động (Actions):** Đã kích hoạt (`Actions enabled`), gửi email qua SNS Topic.
+
+### Hình ảnh minh chứng:
+*(Thêm ảnh chụp màn hình cấu hình Memory-alarm trên CloudWatch Console và đồ thị metric mem_used_percent ở đây)*
+
+---
+
+## Hướng dẫn triển khai nhanh (Terraform Commands)
+
+Nếu cần triển khai lại tài nguyên để chụp ảnh:
+
 ```bash
-aws sts get-caller-identity
-```
-
-### Bước 2: Cấu hình biến môi trường
-1. Copy file cấu hình mẫu sang file cấu hình thực tế:
-   ```bash
-   cp terraform.tfvars.example terraform.tfvars
-   ```
-2. Mở file `terraform.tfvars` và thay đổi email nhận cảnh báo của bạn tại dòng `alert_email`:
-   ```hcl
-   alert_email = "email-cua-ban@gmail.com"
-   ```
-
-### Bước 3: Khởi tạo và Triển khai
-Chạy các lệnh sau tại thư mục `Monitoring`:
-```bash
-# Khởi tạo Terraform
+# 1. Khởi tạo
 terraform init
 
-# Kiểm tra tài nguyên chuẩn bị tạo
-terraform plan
+# 2. Tạo file cấu hình biến thực tế (terraform.tfvars) từ file mẫu:
+# Thay đổi email nhận cảnh báo của bạn tại dòng alert_email
+cp terraform.tfvars.example terraform.tfvars
 
-# Áp dụng cấu hình và tạo tài nguyên trên AWS
+# 3. Apply tài nguyên lên AWS
 terraform apply -auto-approve
-```
 
----
+# 4. Xác thực qua Email:
+# Vào email của bạn để click "Confirm Subscription" link từ AWS SNS.
 
-## Hướng dẫn xác thực & Chụp ảnh minh chứng (Evidence Guide)
-
-Sau khi chạy lệnh `terraform apply` thành công:
-
-### Bước chuẩn bị chung: Xác nhận Subscription Email (BẮT BUỘC)
-- Kiểm tra hộp thư đến của địa chỉ email bạn đã nhập (kiểm tra cả thư mục Spam/Quảng cáo).
-- Click vào link **Confirm Subscription** trong email từ **AWS Notifications** để kích hoạt nhận thông báo.
-
----
-
-### BÀI 1: Cảnh báo CPU Utilization (Standard Metrics)
-
-**Mô tả:** EC2 Instance tự động chạy script stress test đẩy CPU lên ~100% trong vòng 10 phút.
-
-**Các bước lấy Evidence:**
-1. **Evidence 1.1: Trạng thái Alarm trên CloudWatch Console**
-   - Vào AWS Console -> **CloudWatch** -> **Alarms**.
-   - Tìm alarm tên `ec2-cpu-high-alarm`.
-   - Chụp ảnh màn hình khi trạng thái chuyển sang màu đỏ: **ALARM** (xảy ra sau ~5 phút chạy stress test).
-2. **Evidence 1.2: Email cảnh báo CPU từ SNS**
-   - Chụp ảnh màn hình email cảnh báo có tiêu đề `ALARM: "ec2-cpu-high-alarm" in US East (N. Virginia)` gửi đến hòm thư của bạn.
-3. **Evidence 1.3: Email khôi phục (OK State)**
-   - Sau 10 phút stress test kết thúc, CPU hạ nhiệt. Chụp ảnh màn hình email khôi phục khi alarm chuyển sang trạng thái **OK**.
-
----
-
-### BÀI 2: Giám sát RAM qua CloudWatch Agent (Custom Metrics)
-
-**Mô tả:** EC2 Instance được gán IAM Role thích hợp, tự động tải cài đặt, cấu hình và kích hoạt CloudWatch Agent để thu thập Metric của Memory.
-
-**Các bước lấy Evidence:**
-1. **Evidence 2.1: Trạng thái hoạt động của CloudWatch Agent trên EC2**
-   - SSH vào EC2 Instance (sử dụng IP từ Terraform output).
-   - Chạy lệnh kiểm tra trạng thái:
-     ```bash
-     sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -m ec2 -a status
-     ```
-   - Chụp ảnh màn hình terminal hiển thị trạng thái `"status": "running"`.
-2. **Evidence 2.2: Metric Custom xuất hiện trên CloudWatch**
-   - Vào **CloudWatch** -> **Metrics** -> **All Metrics**.
-   - Bạn sẽ thấy một namespace mới tên là **CWAgent**.
-   - Click vào **CWAgent** -> **ImageId, InstanceId, InstanceType, device, fstype, path** (cho Disk) hoặc **InstanceId** (cho RAM).
-   - Chọn metric `mem_used_percent` và chụp biểu đồ đồ thị hiển thị RAM đang được giám sát thành công.
-3. **Evidence 2.3: Trạng thái Alarm của Memory**
-   - Vào **CloudWatch** -> **Alarms** -> tìm alarm tên `ec2-memory-high-alarm`.
-   - Chụp ảnh màn hình hiển thị Alarm này đang ở trạng thái **OK** (hoặc **ALARM** nếu bạn dùng stress test bộ nhớ).
-
----
-
-## Dọn dẹp tài nguyên (Clean up)
-
-Để tránh phát sinh chi phí, hãy dọn dẹp các tài nguyên sau khi kết thúc lab:
-```bash
+# 5. Dọn dẹp tài nguyên sau khi làm xong
 terraform destroy -auto-approve
 ```

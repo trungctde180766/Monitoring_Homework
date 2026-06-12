@@ -98,7 +98,7 @@ resource "aws_instance" "monitored_instance" {
   user_data = file("${path.module}/scripts/stress_cpu.sh")
 
   tags = {
-    Name = "Monitored-EC2-Instance"
+    Name = "Hoangskibidi"
   }
 }
 
@@ -117,7 +117,7 @@ resource "aws_sns_topic_subscription" "email_subscription" {
 
 # Create the CloudWatch Metric Alarm for CPU Utilization
 resource "aws_cloudwatch_metric_alarm" "cpu_high_alarm" {
-  alarm_name          = "ec2-cpu-high-alarm"
+  alarm_name          = "CPU-alarm"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 1
   metric_name         = "CPUUtilization"
@@ -137,7 +137,7 @@ resource "aws_cloudwatch_metric_alarm" "cpu_high_alarm" {
 
 # Create the CloudWatch Metric Alarm for Memory Utilization (Custom Agent Metric)
 resource "aws_cloudwatch_metric_alarm" "memory_high_alarm" {
-  alarm_name          = "ec2-memory-high-alarm"
+  alarm_name          = "Memory-alarm"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 1
   metric_name         = "mem_used_percent"
