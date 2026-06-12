@@ -31,7 +31,7 @@ sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -m ec2 -a 
 ```
 
 ### Hình ảnh minh chứng:
-*(Thêm ảnh chụp màn hình kiểm tra terminal chạy lệnh status ở đây)*
+![Trạng thái CloudWatch Agent](asset/image.png)
 
 ---
 
@@ -50,7 +50,7 @@ Thiết lập cảnh báo CloudWatch Alarm giám sát chỉ số sử dụng CPU
 * **Alarm ARN:** `arn:aws:cloudwatch:ap-southeast-1:458580846647:alarm:CPU-alarm` (hoặc ARN thực tế sau khi Terraform deploy)
 
 ### Hình ảnh minh chứng:
-*(Thêm ảnh chụp màn hình từ trang chi tiết CloudWatch Console chứng minh cảnh báo CPU-alarm đã được tạo thành công với các hành động gửi thông báo được bật ở đây)*
+![Cấu hình CPU Alarm trên CloudWatch](asset/image%20copy.png)
 
 ---
 
